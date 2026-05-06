@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; connect-src 'none'"
+      content="default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; connect-src 'self'"
     />
     <title>SurveyForge Sample Builder</title>
     <link rel="stylesheet" href="src/styles.css" />
@@ -48,9 +48,18 @@
               Description
               <textarea v-model.trim="survey.description" maxlength="180" rows="3"></textarea>
             </label>
+            <label>
+              Default survey set
+              <select v-model="selectedSurveyId">
+                <option v-for="defaultSurvey in surveyCatalog" :key="defaultSurvey.id" :value="defaultSurvey.id">
+                  {{ defaultSurvey.title }}
+                </option>
+              </select>
+            </label>
+            <p class="catalog-status">{{ catalogStatus }}</p>
             <div class="actions">
               <button type="button" @click="addQuestion">Add question</button>
-              <button type="button" class="ghost" @click="resetSample">Restore sample</button>
+              <button type="button" class="ghost" @click="loadSelectedDefault">Load selected default</button>
             </div>
           </div>
 
@@ -141,7 +150,7 @@
           <h2 id="security-title">Tamper-resistance approach</h2>
           <ul>
             <li>Vue keeps survey state inside the module instead of exposing mutable globals on <code>window</code>.</li>
-            <li>A Content Security Policy blocks inline scripts, framing, object embeds, form posts, and network calls.</li>
+            <li>A Content Security Policy blocks inline scripts, framing, object embeds, form posts, and non-local fetch/XHR calls while allowing local JSON defaults.</li>
             <li>Input validation runs before grading so malformed builder data cannot silently produce bogus scores.</li>
             <li>For real exams, grade on a server. Browser-only surveys can reduce casual console edits, not stop the owner of the browser.</li>
           </ul>

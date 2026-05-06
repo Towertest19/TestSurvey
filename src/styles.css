@@ -21,6 +21,7 @@ body {
 
 button,
 input,
+select,
 textarea {
   font: inherit;
 }
@@ -167,6 +168,7 @@ label {
 }
 
 input:not([type='radio']),
+select,
 textarea {
   background: #f9fafb;
   border: 1px solid #c7d2fe;
@@ -177,6 +179,7 @@ textarea {
 }
 
 input:focus,
+select:focus,
 textarea:focus {
   border-color: #4f46e5;
   box-shadow: 0 0 0 4px rgb(79 70 229 / 14%);
@@ -236,6 +239,13 @@ textarea:focus {
   color: #155e75;
   font-weight: 800;
   padding: 0.6rem 0.9rem;
+}
+
+.catalog-status {
+  color: #4b5563;
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin-top: -0.5rem;
 }
 
 .warning {
