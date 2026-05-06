@@ -1,1 +1,162 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; connect-src 'self'"
+    />
+    <title>SurveyForge Sample Builder</title>
+    <link rel="stylesheet" href="src/styles.css" />
+  </head>
+  <body>
+    <div id="app" v-cloak>
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Vue-powered sample survey</p>
+          <h1>Build and take tamper-aware surveys</h1>
+          <p class="lede">
+            Create a short questionnaire or practice test, then switch into take mode. The app uses a dedicated
+            framework, module-scoped state, validation, and a restrictive CSP to reduce casual console tampering.
+          </p>
+        </div>
+        <div class="hero-card" aria-label="Current survey summary">
+          <strong>{{ survey.title || 'Untitled survey' }}</strong>
+          <span>{{ questions.length }} questions</span>
+          <span>{{ answerableQuestionCount }} scored</span>
+        </div>
+      </header>
 
+      <main class="shell">
+        <section class="panel controls" aria-label="Survey workflow controls">
+          <button :class="{ active: mode === 'build' }" type="button" @click="setMode('build')">Build</button>
+          <button :class="{ active: mode === 'take' }" type="button" @click="setMode('take')">Take</button>
+          <button :class="{ active: mode === 'review' }" type="button" :disabled="!submission" @click="setMode('review')">
+            Review
+          </button>
+        </section>
+
+        <section v-if="mode === 'build'" class="panel grid" aria-labelledby="builder-title">
+          <div>
+            <h2 id="builder-title">Survey builder</h2>
+            <label>
+              Survey title
+              <input v-model.trim="survey.title" maxlength="80" placeholder="Example: JavaScript basics" />
+            </label>
+            <label>
+              Description
+              <textarea v-model.trim="survey.description" maxlength="180" rows="3"></textarea>
+            </label>
+            <label>
+              Default survey set
+              <select v-model="selectedSurveyId">
+                <option v-for="defaultSurvey in surveyCatalog" :key="defaultSurvey.id" :value="defaultSurvey.id">
+                  {{ defaultSurvey.title }}
+                </option>
+              </select>
+            </label>
+            <p class="catalog-status">{{ catalogStatus }}</p>
+            <div class="actions">
+              <button type="button" @click="addQuestion">Add question</button>
+              <button type="button" class="ghost" @click="loadSelectedDefault">Load selected default</button>
+            </div>
+          </div>
+
+          <div class="question-list">
+            <article v-for="(question, questionIndex) in questions" :key="question.id" class="question-card">
+              <div class="question-heading">
+                <h3>Question {{ questionIndex + 1 }}</h3>
+                <button type="button" class="danger" :disabled="questions.length === 1" @click="removeQuestion(question.id)">
+                  Remove
+                </button>
+              </div>
+              <label>
+                Prompt
+                <input v-model.trim="question.prompt" maxlength="140" />
+              </label>
+              <label>
+                Explanation shown after submit
+                <textarea v-model.trim="question.explanation" rows="2" maxlength="180"></textarea>
+              </label>
+              <div class="options">
+                <div v-for="(option, optionIndex) in question.options" :key="option.id" class="option-row">
+                  <input
+                    type="radio"
+                    :name="`correct-${question.id}`"
+                    :checked="question.correctOptionId === option.id"
+                    :aria-label="`Mark option ${optionIndex + 1} correct`"
+                    @change="question.correctOptionId = option.id"
+                  />
+                  <input v-model.trim="option.label" maxlength="90" :placeholder="`Option ${optionIndex + 1}`" />
+                  <button
+                    type="button"
+                    class="danger subtle"
+                    :disabled="question.options.length <= 2"
+                    @click="removeOption(question.id, option.id)"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+              <button type="button" class="ghost" :disabled="question.options.length >= 6" @click="addOption(question.id)">
+                Add option
+              </button>
+            </article>
+          </div>
+        </section>
+
+        <section v-if="mode === 'take'" class="panel" aria-labelledby="take-title">
+          <div class="survey-header">
+            <div>
+              <p class="eyebrow">Take mode</p>
+              <h2 id="take-title">{{ survey.title || 'Untitled survey' }}</h2>
+              <p>{{ survey.description }}</p>
+            </div>
+            <span class="pill">{{ completedCount }} / {{ questions.length }} answered</span>
+          </div>
+
+          <form @submit.prevent="submitSurvey">
+            <article v-for="(question, index) in questions" :key="question.id" class="take-card">
+              <h3>{{ index + 1 }}. {{ question.prompt || 'Untitled question' }}</h3>
+              <label v-for="option in question.options" :key="option.id" class="choice">
+                <input v-model="answers[question.id]" type="radio" :name="question.id" :value="option.id" />
+                <span>{{ option.label || 'Untitled option' }}</span>
+              </label>
+            </article>
+            <p v-if="validationMessage" class="warning" role="alert">{{ validationMessage }}</p>
+            <button type="submit">Submit survey</button>
+          </form>
+        </section>
+
+        <section v-if="mode === 'review' && submission" class="panel" aria-labelledby="review-title">
+          <div class="survey-header">
+            <div>
+              <p class="eyebrow">Review mode</p>
+              <h2 id="review-title">Score: {{ submission.score }} / {{ submission.total }}</h2>
+              <p>{{ submission.integrityMessage }}</p>
+            </div>
+            <button type="button" class="ghost" @click="retake">Retake</button>
+          </div>
+          <article v-for="result in submission.results" :key="result.questionId" class="result-card" :class="result.isCorrect ? 'pass' : 'fail'">
+            <h3>{{ result.prompt }}</h3>
+            <p><strong>Your answer:</strong> {{ result.selectedLabel }}</p>
+            <p><strong>Correct answer:</strong> {{ result.correctLabel }}</p>
+            <p>{{ result.explanation }}</p>
+          </article>
+        </section>
+
+        <aside class="panel security-note" aria-labelledby="security-title">
+          <h2 id="security-title">Tamper-resistance approach</h2>
+          <ul>
+            <li>Vue keeps survey state inside the module instead of exposing mutable globals on <code>window</code>.</li>
+            <li>A Content Security Policy blocks inline scripts, framing, object embeds, form posts, and non-local fetch/XHR calls while allowing local JSON defaults.</li>
+            <li>Input validation runs before grading so malformed builder data cannot silently produce bogus scores.</li>
+            <li>For real exams, grade on a server. Browser-only surveys can reduce casual console edits, not stop the owner of the browser.</li>
+          </ul>
+        </aside>
+      </main>
+    </div>
+    <script type="module" src="src/main.js"></script>
+  </body>
+</html>
